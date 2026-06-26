@@ -1,0 +1,115 @@
+from pathlib import Path
+
+# Directories
+ROOT = Path(__file__).resolve().parent
+SENSOR_DATA_DIR = ROOT / "preprocessing" / "data" / "sensor_data"
+LABEL_DATA_DIR = ROOT / "preprocessing" / "data" / "label_data"
+OUTPUT_DIR = ROOT / "output"
+
+SAMPLING_RATE = 100
+
+# Window parameters
+WINDOW_SIZE = 128
+
+# Label parameters
+LABEL_FALL = 1
+LABEL_NON_FALL = 0
+
+# Feature
+FEATURE_COLUMNS = [
+    "AccX", "AccY", "AccZ",
+    "GyrX", "GyrY", "GyrZ",
+    "EulerX", "EulerY", "EulerZ"
+]
+
+FEATURE_LIST = [
+    "mean",
+    "std",
+    "max",
+    "min",
+    "range",
+    "peak_to_peak",
+    "rms",
+    "variance",
+    "median",
+    "iqr",
+    "energy",
+    "skewness",
+    "kurtosis",
+    FEATURE_COLUMNS,
+    "acc_mag",
+    "gyr_mag",
+    "euler_mag",
+    "acc_sma",
+    "gyr_sma"
+]
+
+# Random Forest parameters
+RF_PARAM_GRID = [
+
+        {
+            "n_estimators": 100,
+            "max_depth": None
+        },
+
+        {
+            "n_estimators": 200,
+            "max_depth": None
+        },
+
+        {
+            "n_estimators": 300,
+            "max_depth": None
+        },
+
+        {
+            "n_estimators": 200,
+            "max_depth": 20
+        },
+
+        {
+            "n_estimators": 300,
+            "max_depth": 20
+        }
+
+    ]
+
+# SVM parameters
+SVM_PARAM_GRID = {
+
+    "kernel": [
+        "rbf",
+        "linear"
+    ],
+
+    "C": [
+        0.1,
+        1,
+        10,
+        100
+    ],
+
+    "gamma": [
+        "scale",
+        0.1,
+        0.01
+    ]
+
+}
+
+# Transformer parameters
+INPUT_DIM = 9
+D_MODEL = 64
+TF_PARAM_GRID = {
+    "input_dim": 9,
+    "window_size": 128,
+    "num_classes": 2,
+    "d_model": 64,
+    "nhead": 8,
+    "num_layers": 2,
+    "dim_feedforward": 128,
+    "dropout": 0.2,
+    "learning_rate": 1e-3,
+    "batch_size": 32,
+    "epochs": 30
+}
