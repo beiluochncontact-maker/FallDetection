@@ -1,12 +1,23 @@
 import numpy as np
+import config
 from scipy.stats import skew, kurtosis
 
 
-def extract_statistics(signal):
+def extract_basic_statistics(signal):
 
-    return [
+    features = []
+    std = np.std(signal)
+    if std < 1e-8:
+        skewness = 0.0
+        kurt = 0.0
+    else:
+        skewness = skew(signal)
+        kurt = kurtosis(signal)
+
+
+    features.extend([
         np.mean(signal),
-        np.std(signal),
+        std,
         np.max(signal),
         np.min(signal),
         np.max(signal) - np.min(signal),                    # range
@@ -16,9 +27,51 @@ def extract_statistics(signal):
         np.median(signal),                                  
         np.percentile(signal, 75) - np.percentile(signal, 25), #IQR
         np.sum(signal ** 2),                                # energy
-        skew(signal),                                       # skewness
-        kurtosis(signal)                                    # kurtosis
-    ]
+        skewness,                                           # skewness
+        kurt                                                # kurtosis
+    ])
+
+    return features
+
+
+def check_invalid_features(features, feature_names, sample=None):
+
+    features = np.asarray(features, dtype=np.float32)
+
+    nan_index = np.where(np.isnan(features))[0]
+    inf_index = np.where(np.isinf(features))[0]
+
+    if len(nan_index) > 0 or len(inf_index) > 0:
+
+        print("=" * 60)
+
+        if sample is not None:
+            print(f"Subject : {sample['subject']}")
+            print(f"Trial   : {sample['trial']}")
+
+        '''  error message
+        if len(nan_index) > 0:
+            print("\nNaN Features:")
+
+            for idx in nan_index:
+                print(f"[{idx:3d}] {feature_names[idx]} = NaN")
+
+        if len(inf_index) > 0:
+            print("\nInf Features:")
+
+            for idx in inf_index:
+                print(f"[{idx:3d}] {feature_names[idx]} = Inf")
+        '''
+
+
+    features = np.nan_to_num(
+        features,
+        nan=0.0,
+        posinf=0.0,
+        neginf=0.0
+    )
+
+    return features
 
 
 def feature_extractor(windows):
@@ -32,7 +85,7 @@ def feature_extractor(windows):
         # Acc Gyr Euler
         for i in range(data.shape[1]):
             features.extend(
-                extract_statistics(data[:, i])
+                extract_basic_statistics(data[:, i])
             )
 
         # Magnitude
@@ -40,9 +93,9 @@ def feature_extractor(windows):
         gyr_mag = np.linalg.norm(data[:, 3:6], axis=1)
         euler_mag = np.linalg.norm(data[:, 6:9], axis=1)
 
-        features.extend(extract_statistics(acc_mag))
-        features.extend(extract_statistics(gyr_mag))
-        features.extend(extract_statistics(euler_mag))
+        features.extend(extract_basic_statistics(acc_mag))
+        features.extend(extract_basic_statistics(gyr_mag))
+        features.extend(extract_basic_statistics(euler_mag))
 
         # Signal Magnitude Area(SMA)
         acc_sma = np.mean(np.abs(data[:, 0]) +
@@ -57,12 +110,19 @@ def feature_extractor(windows):
             gyr_sma
         ])
 
+        features = check_invalid_features(
+            features,
+            config.FEATURE_LIST,
+            sample
+        )
+
         # Feature dataset
         feature_dataset.append({
             "subject": sample["subject"],
             "trial": sample["trial"],
             "label": sample["label"],
-            "feature": np.array(features, dtype=np.float32)
+            "window": sample["data"],                               # Original Window Data
+            "feature": np.array(features, dtype=np.float32)         # Feature Vector
         })
 
     return feature_dataset

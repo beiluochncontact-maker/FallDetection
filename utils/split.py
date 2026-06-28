@@ -9,6 +9,7 @@ def split_loso(dataset, random_state=42):
     })
 
     # LOSO
+    loso_dataset = []
     for test_subject in subjects:
         # Remaining 32 Subjects
         remain_subjects = [
@@ -51,9 +52,12 @@ def split_loso(dataset, random_state=42):
             if sample["subject"] == test_subject
         ]
 
-        yield {
+        
+        loso_dataset.append({
             "test_subject": test_subject,
             "train_set": train_set,
             "val_set": val_set,
             "test_set": test_set
-        }
+        })
+        
+    return loso_dataset

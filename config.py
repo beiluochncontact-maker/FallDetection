@@ -36,7 +36,7 @@ FEATURE_LIST = [
     "energy",
     "skewness",
     "kurtosis",
-    FEATURE_COLUMNS,
+
     "acc_mag",
     "gyr_mag",
     "euler_mag",

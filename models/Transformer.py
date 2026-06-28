@@ -27,7 +27,7 @@ class FallDataset(Dataset):
     def __getitem__(self, index):
         sample = self.samples[index]
         data = torch.tensor(
-            sample["data"],
+            sample["window"],
             dtype=torch.float32
         )
         label = torch.tensor(

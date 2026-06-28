@@ -30,8 +30,10 @@ def main():
     print("Reading Dataset...")
 
     # Read Data
-    label_dict = label_reader()
-    sensor_dict = sensor_reader()
+    #label_dict = label_reader()
+    #sensor_dict = sensor_reader()
+    #print("Label Dict:", label_dict)
+    #print("Sensor Dict:", sensor_dict)
 
     # Merge Dataset
     print("Building Dataset...")
@@ -44,19 +46,18 @@ def main():
 
     # Feature Extraction
     print("Generating Feature Dataset...")
-    feature_dataset = feature_extractor(window_dataset)
-
+    dataset = feature_extractor(window_dataset)
+    
 
     # LOSO Split
-    feature_loso = split_loso(feature_dataset)
-    sequence_loso = split_loso(window_dataset)
+    loso_dataset = split_loso(dataset)
 
-
+    print("Training Models...")
     run_model(
         "Random Forest",
         train_random_forest,
         evaluate_random_forest,
-        feature_loso,
+        loso_dataset,
         save_result,
         param_grid=config.RF_PARAM_GRID
     )
@@ -65,7 +66,7 @@ def main():
         "SVM",
         train_svm,
         evaluate_svm,
-        feature_loso,
+        loso_dataset,
         save_result,
         param_grid=config.SVM_PARAM_GRID
     )
@@ -74,7 +75,7 @@ def main():
         "Transformer",
         train_transformer,
         evaluate_transformer,
-        sequence_loso,
+        loso_dataset,
         save_result,
         param_grid=config.TF_PARAM_GRID
     )

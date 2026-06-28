@@ -1,6 +1,5 @@
 import config
-from preprocessing import data
-from pathlib import Path
+import re
 import pandas as pd
 
 # Label reader
@@ -15,18 +14,23 @@ def label_reader():
         excel_path = label_root / f"SA{subject_id:02d}_label.xlsx"
         try:
             df = pd.read_excel(excel_path)
+            df["Task Code (Task ID)"] = df["Task Code (Task ID)"].ffill()
         except FileNotFoundError:
             continue
 
         for _, row in df.iterrows():
 
-            trial = row["Trial ID"]
+            task_code = str(row["Task Code (Task ID)"])
+            match = re.search(r"\((\d+)\)", task_code)
+            task_id = int(match.group(1))
+            trial_id = row["Trial ID"]
+            trial = f"T{task_id:02d}R{trial_id:02d}"
+
             onset = row["Fall_onset_frame"]
             impact = row["Fall_impact_frame"]
             label_dict[(subject, trial)] = {
-
-                "onset": 0 if pd.isna(onset) else int(onset),
-                "impact": 0 if pd.isna(impact) else int(impact)
+                "onset": onset,
+                "impact": impact
             }
 
     return label_dict
@@ -43,13 +47,13 @@ def sensor_reader():
         subject = f"S{subject_id:02d}"
         folder = sensor_root / f"SA{subject_id:02d}"
 
+        if not folder.exists():
+            continue
+
         for csv_path in sorted(folder.glob("*.csv")):
 
             filename = csv_path.stem
-            # S06T02R03
-
             trial = filename[len(subject):]
-            # T02R03
 
             sensor_dict[(subject, trial)] = {
                 "csv_path": csv_path

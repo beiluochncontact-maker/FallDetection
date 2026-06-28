@@ -1,10 +1,10 @@
-import os
 import numpy as np
 
 from joblib import dump
 
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
+from sklearn.model_selection import ParameterGrid
 from sklearn.svm import SVC
 
 from sklearn.metrics import (
@@ -26,6 +26,18 @@ def train_svm(
         for sample in train_set
     ])
 
+    # test NaN
+    for i, sample in enumerate(train_set):
+
+        feature = sample["feature"]
+        if np.isnan(feature).any():
+            print("=" * 50)
+            print("NaN Sample")
+            print("Index:", i)
+            print("Subject:", sample["subject"])
+            print("Trial:", sample["trial"])
+
+
     y_train = np.array([
         sample["label"]
         for sample in train_set
@@ -45,7 +57,7 @@ def train_svm(
     best_score = -1
     best_params = None
 
-    for params in param_grid:
+    for params in ParameterGrid(param_grid):
 
         model = Pipeline([
         
@@ -64,12 +76,19 @@ def train_svm(
             )
         
         ])
-        
+
+        print("Train labels:", np.unique(y_train, return_counts=True))
+        print("Train subjects:")
+        subjects = sorted(set(sample["subject"] for sample in train_set))
+        print(subjects)
         model.fit(
             x_train,
             y_train
         )
-        
+        print("Fall samples:")
+        print(sum(sample["label"] for sample in train_set))
+
+
         pred = model.predict(
             x_val
         )
