@@ -78,15 +78,16 @@ def train_svm(
         ])
 
         print("Train labels:", np.unique(y_train, return_counts=True))
-        print("Train subjects:")
-        subjects = sorted(set(sample["subject"] for sample in train_set))
-        print(subjects)
+        #print("Train subjects:")
+        #subjects = sorted(set(sample["subject"] for sample in train_set))
+        #print(subjects)
         model.fit(
             x_train,
             y_train
         )
-        print("Fall samples:")
-        print(sum(sample["label"] for sample in train_set))
+
+        #print("Fall samples:")
+        #print(sum(sample["label"] for sample in train_set))
 
 
         pred = model.predict(
