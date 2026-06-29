@@ -179,43 +179,46 @@ def train_transformer(
             loss.backward()
             optimizer.step()
 
-            model.eval()
-            pred_list = []
-            label_list = []
+        model.eval()
+        pred_list = []
+        label_list = []
 
-            with torch.no_grad():
-                for x, y in val_loader:
+        with torch.no_grad():
+            for x, y in val_loader:
 
-                    x = x.to(device)
-                    output = model(x)
-                    pred = torch.argmax(
-                        output,
-                        dim=1
-                    )
+                x = x.to(device)
+                output = model(x)
+                pred = torch.argmax(
+                    output,
+                    dim=1
+                )
 
-                    pred_list.extend(
-                        pred.cpu().numpy()
-                    )
+                pred_list.extend(
+                    pred.cpu().numpy()
+                )
 
-                    label_list.extend(
-                        y.numpy()
-                    )
+                label_list.extend(
+                    y.numpy()
+                )
 
-            val_acc = accuracy_score(
-                label_list,
-                pred_list
-            )
+        val_acc = accuracy_score(
+            label_list,
+            pred_list
+        )
 
-            print(
-                f"Epoch {epoch+1:02d}"
-                f"  Validation={val_acc:.4f}"
-            )
+        print(
+            f"Epoch {epoch+1:02d}"
+            f"  Validation={val_acc:.4f}"
+        )
 
-            if val_acc > best_acc:
-                best_acc = val_acc
-                best_model = copy.deepcopy(model)
+        if val_acc > best_acc:
+            best_acc = val_acc
+            best_model = copy.deepcopy(model)
 
-    return best_model, best_acc
+    return {
+        "best_model": best_model, 
+        "best_acc": best_acc
+    }
 
 
 def evaluate_transformer(

@@ -67,7 +67,10 @@ def train_random_forest(
             best_score = score
             best_model = model
 
-    return best_model
+    return {
+        "best_model": best_model,
+        "best_score": best_score
+    }
 
 
 def evaluate_random_forest(model,test_set):

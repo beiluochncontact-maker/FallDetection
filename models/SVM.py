@@ -105,7 +105,11 @@ def train_svm(
             best_model = model
             best_params = params
 
-    return best_model
+    return {
+        "best_model": best_model, 
+        "best_params": best_params,
+        "best_score": best_score
+    }
 
 
 def evaluate_svm(

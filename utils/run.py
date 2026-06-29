@@ -23,11 +23,12 @@ def run_model(
         print(f"Fold {fold}")
         print(f"Test Subject: {test_subject}")
 
-        model = train_fn(
+        train = train_fn(
             train_set,
             val_set,
             param_grid
         )
+        model = train["best_model"]
 
         metrics = evaluate_fn(
             model,
