@@ -1,3 +1,5 @@
+import matplotlib
+matplotlib.use("Agg")
 import config
 from preprocessing.reader import label_reader
 from preprocessing.reader import sensor_reader
@@ -40,6 +42,12 @@ def main():
 
     dataset = dataset_builder()
 
+    from visualization.data_visualizer import DataVisualizer
+    from visualization.result_visualizer import ResultVisualizer
+
+    visualizer = DataVisualizer()
+    visualizer.visualize_all(dataset)
+
     # Window
     print("Generating Window Dataset...")
     window_dataset = build_windows(dataset)
@@ -80,6 +88,12 @@ def main():
         param_grid=config.TF_PARAM_GRID
     )
 
+    for model in [
+        "Random Forest",
+        "SVM",
+        "Transformer"
+    ]:
+        ResultVisualizer(model).visualize_all()
 
     print("\n")
     print("=" * 70)
