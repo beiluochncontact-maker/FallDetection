@@ -1,3 +1,5 @@
+import matplotlib
+matplotlib.use("Agg")
 import config
 from preprocessing.reader import label_reader
 from preprocessing.reader import sensor_reader
@@ -9,6 +11,8 @@ from utils.split import split_loso
 from utils.result import save_result
 from utils.run import run_model
 
+from visualization.data_visualizer import DataVisualizer
+from visualization.result_visualizer import ResultVisualizer
 from models.Random_Forest import (
     train_random_forest,
     evaluate_random_forest
@@ -39,6 +43,9 @@ def main():
     print("Building Dataset...")
 
     dataset = dataset_builder()
+
+    visualizer = DataVisualizer()
+    visualizer.visualize_all(dataset)
 
     # Window
     print("Generating Window Dataset...")
@@ -80,6 +87,12 @@ def main():
         param_grid=config.TF_PARAM_GRID
     )
 
+    for model in [
+        "Random Forest",
+        "SVM",
+        "Transformer"
+    ]:
+        ResultVisualizer(model).visualize_all()
 
     print("\n")
     print("=" * 70)

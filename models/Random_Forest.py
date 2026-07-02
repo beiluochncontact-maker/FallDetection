@@ -7,7 +7,9 @@ from sklearn.metrics import (
     precision_score,
     recall_score,
     f1_score,
-    confusion_matrix
+    confusion_matrix,
+    roc_curve,
+    auc
 )
 
 
@@ -89,6 +91,20 @@ def evaluate_random_forest(model,test_set):
         x_test
     )
 
+    # 预测为 Fall（类别1）的概率
+    prob = model.predict_proba(x_test)[:, 1]
+
+    # ROC
+    fpr, tpr, _ = roc_curve(
+        y_test,
+        prob
+    )
+
+    roc_auc = auc(
+        fpr,
+        tpr
+    )
+
     acc = accuracy_score(
         y_test,
         pred
@@ -123,6 +139,8 @@ def evaluate_random_forest(model,test_set):
         "precision": precision,
         "recall": recall,
         "f1": f1,
-        "confusion_matrix": cm
-
+        "confusion_matrix": cm,
+        "fpr": fpr,
+        "tpr": tpr,
+        "auc": roc_auc
     }

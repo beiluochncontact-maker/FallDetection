@@ -43,6 +43,8 @@ def save_result(results, model_name):
     rows = []
     confusion_matrix_sum = np.zeros((2, 2), dtype=int)
 
+    roc_data = None
+
     for result in results:
 
         rows.append({
@@ -54,6 +56,14 @@ def save_result(results, model_name):
         })
 
         confusion_matrix_sum += result["confusion_matrix"]
+
+        # 保存第一折 ROC 数据
+        if roc_data is None and "fpr" in result:
+            roc_data = {
+                "fpr": result["fpr"],
+                "tpr": result["tpr"],
+                "auc": result["auc"]
+            }
 
     df = pd.DataFrame(rows)
     df.to_csv(
@@ -80,6 +90,17 @@ def save_result(results, model_name):
 
     )
 
+    if roc_data is not None:
+
+        np.savez(
+            os.path.join(
+                save_dir,
+                "roc_curve.npz"
+            ),
+            fpr=roc_data["fpr"],
+            tpr=roc_data["tpr"],
+            auc=roc_data["auc"]
+        )
 
     # Summary
     summary = pd.DataFrame([{
