@@ -1,0 +1,16 @@
+# Python
+__pycache__/
+models/__pycache__/
+preprocessing/__pycache__/
+utils/__pycache__/
+visualization/__pycache__/
+*.pyc
+
+# results
+output/
+
+# IDE
+.vscode/
+
+# origin datas
+preprocessing/data/
