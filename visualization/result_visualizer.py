@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
+from config import OUTPUT_DIR
 from visualization.base import BaseVisualizer
 
 
@@ -12,7 +13,7 @@ class ResultVisualizer(BaseVisualizer):
 
     def __init__(self, model_name):
         
-        save_dir = Path("figures") / "results" / model_name
+        save_dir = Path(OUTPUT_DIR) / "figures" / "results" / model_name
 
         super().__init__(save_dir)
 

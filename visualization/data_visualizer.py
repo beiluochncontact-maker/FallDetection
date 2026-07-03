@@ -4,6 +4,7 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import pandas as pd
 
+from config import OUTPUT_DIR
 from visualization.base import BaseVisualizer
 
 
@@ -11,7 +12,7 @@ class DataVisualizer(BaseVisualizer):
 
     def __init__(self):
 
-        super().__init__("figures/data")
+        super().__init__(Path(OUTPUT_DIR) / "figures" / "data")
 
     # --------------------------------------------------
     # 类别统计
