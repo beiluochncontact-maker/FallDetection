@@ -1,5 +1,8 @@
 import numpy as np
+import config
 
+from utils.sliding import sliding_window
+from utils.sliding import vote_prediction
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score
 from sklearn.metrics import (
@@ -77,64 +80,93 @@ def train_random_forest(
 
 def evaluate_random_forest(model,test_set):
 
-    x_test = np.array([
-        sample["feature"]
-        for sample in test_set
-    ])
+    y_true = []
+    y_pred = []
+    y_prob = []
 
-    y_test = np.array([
-        sample["label"]
-        for sample in test_set
-    ])
+    for sample in test_set:
 
-    pred = model.predict(
-        x_test
+        feature_sequence = sample["all_features"]
+        true_label = sample["label"]
+
+        # Sliding Window
+        windows = sliding_window(
+            feature_sequence,
+            window_size=config.WINDOW_SIZE,
+            stride=config.STRIDE
+        )
+
+        if len(windows) == 0:
+            continue
+
+
+        window_predictions = []
+        window_probabilities = []
+
+        for window in windows:
+
+            x = window.reshape(1, -1)
+
+            pred = model.predict(x)[0]
+            prob = model.predict_proba(x)[0, 1]
+
+            window_predictions.append(pred)
+            window_probabilities.append(prob)
+
+
+        final_prediction = vote_prediction(
+            window_predictions,
+            vote_size=config.VOTE_SIZE,
+            threshold=config.VOTE_THRESHOLD
+        )
+
+        final_probability = np.max(window_probabilities)
+
+        y_true.append(true_label)
+        y_pred.append(final_prediction)
+        y_prob.append(final_probability)
+
+    # Evaluation
+    acc = accuracy_score(
+        y_true,
+        y_pred
     )
 
-    # 预测为 Fall（类别1）的概率
-    prob = model.predict_proba(x_test)[:, 1]
+    precision = precision_score(
+        y_true,
+        y_pred,
+        zero_division=0
+    )
+
+    recall = recall_score(
+        y_true,
+        y_pred,
+        zero_division=0
+    )
+
+    f1 = f1_score(
+        y_true,
+        y_pred,
+        zero_division=0
+    )
+
+    cm = confusion_matrix(
+        y_true,
+        y_pred
+    )
 
     # ROC
     fpr, tpr, _ = roc_curve(
-        y_test,
-        prob
+        y_true,
+        y_prob
     )
-
+    
     roc_auc = auc(
         fpr,
         tpr
     )
 
-    acc = accuracy_score(
-        y_test,
-        pred
-    )
-
-    precision = precision_score(
-        y_test,
-        pred,
-        zero_division=0
-    )
-
-    recall = recall_score(
-        y_test,
-        pred,
-        zero_division=0
-    )
-
-    f1 = f1_score(
-        y_test,
-        pred,
-        zero_division=0
-    )
-
-    cm = confusion_matrix(
-        y_test,
-        pred
-    )
-
     return {
-
         "accuracy": acc,
         "precision": precision,
         "recall": recall,

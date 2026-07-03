@@ -57,7 +57,7 @@ def save_result(results, model_name):
 
         confusion_matrix_sum += result["confusion_matrix"]
 
-        # 保存第一折 ROC 数据
+        # Save ROC curve data from first subject
         if roc_data is None and "fpr" in result:
             roc_data = {
                 "fpr": result["fpr"],

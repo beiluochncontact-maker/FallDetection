@@ -1,5 +1,4 @@
 import matplotlib
-matplotlib.use("Agg")
 import config
 from preprocessing.reader import label_reader
 from preprocessing.reader import sensor_reader
@@ -44,6 +43,7 @@ def main():
 
     dataset = dataset_builder()
 
+    matplotlib.use("Agg")
     visualizer = DataVisualizer()
     visualizer.visualize_all(dataset)
 
@@ -78,6 +78,7 @@ def main():
         param_grid=config.SVM_PARAM_GRID
     )
 
+    '''
     run_model(
         "Transformer",
         train_transformer,
@@ -86,11 +87,12 @@ def main():
         save_result,
         param_grid=config.TF_PARAM_GRID
     )
-
+    '''
+    
     for model in [
         "Random Forest",
         "SVM",
-        "Transformer"
+        #"Transformer"
     ]:
         ResultVisualizer(model).visualize_all()
 

@@ -1,6 +1,7 @@
 import numpy as np
 import config
 from scipy.stats import skew, kurtosis
+from collections import defaultdict
 
 
 def extract_basic_statistics(signal):
@@ -121,8 +122,46 @@ def feature_extractor(windows):
             "subject": sample["subject"],
             "trial": sample["trial"],
             "label": sample["label"],
+            "start": sample["start"],
+            "end": sample["end"],
             "window": sample["data"],                               # Original Window Data
             "feature": np.array(features, dtype=np.float32)         # Feature Vector
         })
 
     return feature_dataset
+
+
+
+def group_features(feature_dataset):
+
+    #Group all window features by (subject, trial).
+    all_features = defaultdict(lambda: {
+        "subject": None,
+        "trial": None,
+        "label": None,
+        "windows": []
+    })
+
+    for sample in feature_dataset:
+
+        key = (sample["subject"], sample["trial"])
+
+        all_features[key]["subject"] = sample["subject"]
+        all_features[key]["trial"] = sample["trial"]
+        all_features[key]["label"] = sample["label"]
+
+        all_features[key]["windows"].append({
+
+            "feature": sample["feature"],
+            "window": sample.get("window", None),
+            "start": sample.get("start", None),
+            "end": sample.get("end", None)
+        })
+
+    for sample in all_features.values():
+
+        sample["windows"].sort(
+            key=lambda x: x["start"] if x["start"] is not None else 0
+        )
+
+    return dict(all_features)

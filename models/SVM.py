@@ -1,7 +1,8 @@
 import numpy as np
+import config
 
-from joblib import dump
-
+from utils.sliding import sliding_window
+from utils.sliding import vote_prediction
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import ParameterGrid
@@ -17,42 +18,49 @@ from sklearn.metrics import (
 
 
 def train_svm(
-        train_set,
-        val_set,
-        param_grid):
+        train_set, 
+        val_set, 
+        param_grid
+    ):
 
-    x_train = np.array([
-        sample["feature"]
-        for sample in train_set
-    ])
+    x_train, y_train = [], []
 
-    # test NaN
-    for i, sample in enumerate(train_set):
+    for sample in train_set:
 
-        feature = sample["feature"]
-        if np.isnan(feature).any():
-            print("=" * 50)
-            print("NaN Sample")
-            print("Index:", i)
-            print("Subject:", sample["subject"])
-            print("Trial:", sample["trial"])
+        windows = sliding_window(
+            sample["all_features"],
+            window_size=32,
+            stride=8
+        )
+
+        for w in windows:
+            x_train.append(w.reshape(-1))
+            y_train.append(sample["label"])
+
+    x_train = np.array(x_train)
+    y_train = np.array(y_train)
 
 
-    y_train = np.array([
-        sample["label"]
-        for sample in train_set
-    ])
+    # Validation set
+    x_val, y_val = [], []
 
-    x_val = np.array([
-        sample["feature"]
-        for sample in val_set
-    ])
+    for sample in val_set:
 
-    y_val = np.array([
-        sample["label"]
-        for sample in val_set
-    ])
+        windows = sliding_window(
+            sample["all_features"],
+            window_size=32,
+            stride=8
+        )
 
+        for w in windows:
+            x_val.append(w.reshape(-1))
+            y_val.append(sample["label"])
+
+    x_val = np.array(x_val)
+    y_val = np.array(y_val)
+
+
+    # Grid search
     best_model = None
     best_score = -1
     best_params = None
@@ -60,53 +68,27 @@ def train_svm(
     for params in ParameterGrid(param_grid):
 
         model = Pipeline([
-        
-            (
-                "scaler",
-                StandardScaler()
-            ),
-        
-            (
-                "svm",
-                SVC(
-                    **params,
-                    class_weight="balanced",
-                    random_state=42
-                )
-            )
-        
+            ("scaler", StandardScaler()),
+            ("svm", SVC(
+                **params,
+                class_weight="balanced",
+                random_state=42
+            ))
         ])
 
-        print("Train labels:", np.unique(y_train, return_counts=True))
-        #print("Train subjects:")
-        #subjects = sorted(set(sample["subject"] for sample in train_set))
-        #print(subjects)
-        model.fit(
-            x_train,
-            y_train
-        )
+        model.fit(x_train, y_train)
 
-        #print("Fall samples:")
-        #print(sum(sample["label"] for sample in train_set))
+        pred = model.predict(x_val)
 
+        score = accuracy_score(y_val, pred)
 
-        pred = model.predict(
-            x_val
-        )
-        
-        score = accuracy_score(
-            y_val,
-            pred
-        )
-        
         if score > best_score:
-        
             best_score = score
             best_model = model
             best_params = params
 
     return {
-        "best_model": best_model, 
+        "best_model": best_model,
         "best_params": best_params,
         "best_score": best_score
     }
@@ -116,50 +98,66 @@ def evaluate_svm(
         model,
         test_set):
 
-    x_test = np.array([
-        sample["feature"]
-        for sample in test_set
-    ])
+    y_true = []
+    y_pred = []
+    y_prob = []
 
-    y_test = np.array([
-        sample["label"]
-        for sample in test_set
-    ])
+    for sample in test_set:
 
-    pred = model.predict(
-        x_test
-    )
 
-    result = {
-
-        "accuracy": accuracy_score(
-            y_test,
-            pred
-        ),
-
-        "precision": precision_score(
-            y_test,
-            pred,
-            zero_division=0
-        ),
-
-        "recall": recall_score(
-            y_test,
-            pred,
-            zero_division=0
-        ),
-
-        "f1": f1_score(
-            y_test,
-            pred,
-            zero_division=0
-        ),
-
-        "confusion_matrix": confusion_matrix(
-            y_test,
-            pred
+        # Sliding window
+        windows = sliding_window(
+            sample["all_features"],
+            window_size=config.WINDOW_SIZE,
+            stride=config.STRIDE
         )
 
-    }
+        if len(windows) == 0:
+            continue
 
-    return result
+        window_preds = []
+        window_probs = []
+
+        for w in windows:
+
+            x = w.reshape(1, -1)
+
+            pred = model.predict(x)[0]
+
+            # SVM probability
+            SVC(probability=True)
+            prob = model.predict_proba(x)[0, 1]
+
+            window_preds.append(pred)
+            window_probs.append(prob)
+
+
+        # Window voting
+        final_pred = vote_prediction(
+            window_preds,
+            vote_size=config.VOTE_SIZE,
+            threshold=config.THRESHOLD
+        )
+
+        # sequence-level probability
+        final_prob = np.mean(window_probs)
+
+        y_true.append(sample["label"])
+        y_pred.append(final_pred)
+        y_prob.append(final_prob)
+
+
+    # Metrics
+    accuracy = accuracy_score(y_true, y_pred)
+    precision = precision_score(y_true, y_pred, zero_division=0)
+    recall = recall_score(y_true, y_pred, zero_division=0)
+    f1 = f1_score(y_true, y_pred, zero_division=0)
+    cm = confusion_matrix(y_true, y_pred)
+
+    return {
+        "accuracy": accuracy,
+        "precision": precision,
+        "recall": recall,
+        "f1": f1,
+        "confusion_matrix": cm
+    }

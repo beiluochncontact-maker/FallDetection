@@ -1,12 +1,26 @@
 from sklearn.model_selection import train_test_split
+from collections import defaultdict
+
+def build_subject_features(dataset):
+    
+    subject_features = defaultdict(list)
+
+    for sample in dataset:
+        subject_features[sample["subject"]].append(sample["feature"])
+
+    # Compose subjects into dictionary
+    subject_features = {
+        subj: features
+        for subj, features in subject_features.items()
+    }
+
+    return subject_features
 
 
 def split_loso(dataset, random_state=42):
     # Subjects
-    subjects = sorted({
-        sample["subject"]
-        for sample in dataset
-    })
+    subject_features = build_subject_features(dataset)
+    subjects = sorted(subject_features.keys())
 
     # LOSO
     loso_dataset = []
@@ -31,33 +45,24 @@ def split_loso(dataset, random_state=42):
         val_subjects = set(val_subjects)
 
         # Train Set
-        train_set = [
-            sample
-            for sample in dataset
-            if sample["subject"] in train_subjects
-        ]
-
+        train_set = {
+            s: subject_features[s]
+            for s in train_subjects
+        }
 
         # Validation Set
-        val_set = [
-            sample
-            for sample in dataset
-            if sample["subject"] in val_subjects
-        ]
+        val_set = {
+            s: subject_features[s]
+            for s in val_subjects
+        }
 
+        test_set = subject_features[test_subject]
 
-        test_set = [
-            sample
-            for sample in dataset
-            if sample["subject"] == test_subject
-        ]
-
-        
         loso_dataset.append({
             "test_subject": test_subject,
             "train_set": train_set,
             "val_set": val_set,
             "test_set": test_set
         })
-        
+
     return loso_dataset

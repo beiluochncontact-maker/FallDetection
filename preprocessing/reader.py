@@ -15,6 +15,7 @@ def label_reader():
         try:
             df = pd.read_excel(excel_path)
             df["Task Code (Task ID)"] = df["Task Code (Task ID)"].ffill()
+            df["Description"] = df["Description"].ffill()
         except FileNotFoundError:
             continue
 
@@ -28,9 +29,12 @@ def label_reader():
 
             onset = row["Fall_onset_frame"]
             impact = row["Fall_impact_frame"]
+            description = str(row["Description"]).strip()
+            fall_type = config.DESCRIPTION_MAP.get(description, -1)
             label_dict[(subject, trial)] = {
                 "onset": onset,
-                "impact": impact
+                "impact": impact,
+                "fall_type": fall_type
             }
 
     return label_dict

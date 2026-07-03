@@ -33,15 +33,6 @@ def run_model(
         )
         model = train["best_model"]
 
-        # 保存Random Forest特征重要性（只保存一次）
-        if model_name == "Random Forest" and fold == 1:
-            os.makedirs(f"output/{model_name}", exist_ok=True)
-
-            np.save(
-                f"output/{model_name}/feature_importance.npy",
-                model.feature_importances_
-            )
-
         metrics = evaluate_fn(
             model,
             test_set

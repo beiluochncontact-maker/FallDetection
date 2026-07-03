@@ -23,6 +23,7 @@ def dataset_builder():
             "csv_path": sensor_data["csv_path"],
             "onset": onset,
             "impact": impact,
+            #"fall_type": label_dict[key]["fall_type"],
             "is_fall": key in label_dict
         }
 
