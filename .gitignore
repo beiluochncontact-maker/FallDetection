@@ -11,6 +11,7 @@ output/
 
 # IDE
 .vscode/
+.venv/
 
 # origin datas
 preprocessing/data/

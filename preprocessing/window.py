@@ -31,17 +31,21 @@ def build_windows(dataset):
             if start + config.WINDOW_SIZE > total_length:
                 start = total_length - config.WINDOW_SIZE
             
-
-            data = (
-                df.iloc[start:end][config.FEATURE_COLUMNS]
-                .to_numpy(dtype=np.float32)
-            )
             label = 1
 
         
         else:
-            continue
-        
+            onset = None
+            impact = None
+            start = 0
+            end = total_length
+            label = 0
+
+        data = (
+            df.iloc[start:end][config.FEATURE_COLUMNS]
+            .to_numpy(dtype=np.float32)
+        )
+                
 
         # Generate Sliding Windows
         stride = config.STRIDE

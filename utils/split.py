@@ -1,12 +1,30 @@
 from sklearn.model_selection import train_test_split
 from collections import defaultdict
 
+def build_subject_windows(window_dataset):
+
+    subject_windows = defaultdict(list)
+
+    for sample in window_dataset:
+        subject_windows[sample["subject"]].append(sample)
+
+    return dict(subject_windows)
+
+
 def build_subject_features(dataset):
     
     subject_features = defaultdict(list)
 
     for sample in dataset:
-        subject_features[sample["subject"]].append(sample["feature"])
+        subject_features[sample["subject"]].append({
+
+            "trial": sample["trial"],
+            "label": sample["label"],
+            "feature": sample["feature"],
+            "start": sample["start"],
+            "end": sample["end"]
+
+        })
 
     # Compose subjects into dictionary
     subject_features = {
@@ -17,9 +35,10 @@ def build_subject_features(dataset):
     return subject_features
 
 
-def split_loso(dataset, random_state=42):
+def split_loso(feature_dataset, window_dataset, random_state=42):
     # Subjects
-    subject_features = build_subject_features(dataset)
+    subject_features = build_subject_features(feature_dataset)
+    subject_windows = build_subject_windows(window_dataset)
     subjects = sorted(subject_features.keys())
 
     # LOSO
@@ -56,8 +75,14 @@ def split_loso(dataset, random_state=42):
             for s in val_subjects
         }
 
+        '''
+        test_set = {
+            "feature": subject_features[test_subject],
+            "window": subject_windows[test_subject]
+        }
+        '''
         test_set = subject_features[test_subject]
-
+        
         loso_dataset.append({
             "test_subject": test_subject,
             "train_set": train_set,

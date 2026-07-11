@@ -123,7 +123,7 @@ INPUT_DIM = 9
 D_MODEL = 64
 TF_PARAM_GRID = {
     "input_dim": 9,
-    "window_size": 128,
+    "window_size": WINDOW_SIZE,
     "num_classes": 2,
     "d_model": 64,
     "nhead": 8,

@@ -131,10 +131,9 @@ def feature_extractor(windows):
     return feature_dataset
 
 
-
+#Group all window features by (subject, trial)
 def group_features(feature_dataset):
 
-    #Group all window features by (subject, trial).
     all_features = defaultdict(lambda: {
         "subject": None,
         "trial": None,
