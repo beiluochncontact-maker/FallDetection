@@ -1,192 +1,245 @@
 import numpy as np
 import config
 
-from utils.sliding import sliding_window
-from utils.sliding import vote_prediction
+from imblearn.under_sampling import RandomUnderSampler
+from collections import defaultdict
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import ParameterGrid
 from sklearn.svm import SVC
-
 from sklearn.metrics import (
     accuracy_score,
     precision_score,
     recall_score,
     f1_score,
-    confusion_matrix
+    confusion_matrix,
+    roc_curve,
+    auc
 )
 
 
 def train_svm(
-        train_set, 
-        val_set, 
-        param_grid
-    ):
+    train_set,
+    val_set,
+    param_grid
+):
 
-    x_train, y_train = [], []
+    # Build Training Data
+    x_train = []
+    y_train = []
 
-    for samples in train_set.values():
+    for subject_samples in train_set.values():
 
-        for sample in samples:
-            windows = sliding_window(
-                sample["all_features"],
-                window_size=config.WINDOW_SIZE,
-                stride=config.TRAIN_STRIDE
-            )
+        for sample in subject_samples:
 
-            for w in windows:
-                x_train.append(w.reshape(-1))
-                y_train.append(sample["label"])
+            x_train.append(sample["feature"])
+            y_train.append(sample["label"])
 
-    x_train = np.array(x_train)
-    y_train = np.array(y_train)
+    x_train = np.asarray(
+        x_train,
+        dtype=np.float32
+    )
 
+    y_train = np.asarray(
+        y_train,
+        dtype=np.int32
+    )
 
-    # Validation set
-    x_val, y_val = [], []
+    # Build Validation Data
+    x_val = []
+    y_val = []
 
-    for samples in val_set.values():
-        for sample in samples:
+    for subject_samples in val_set.values():
 
-            windows = sliding_window(
-                sample["all_features"],
-                window_size=config.WINDOW_SIZE,
-                stride=config.TRAIN_STRIDE
-            )
+        for sample in subject_samples:
 
-            for w in windows:
-                x_val.append(w.reshape(-1))
-                y_val.append(sample["label"])
+            x_val.append(sample["feature"])
+            y_val.append(sample["label"])
 
-    x_val = np.array(x_val)
-    y_val = np.array(y_val)
+    x_val = np.asarray(
+        x_val,
+        dtype=np.float32
+    )
 
+    y_val = np.asarray(
+        y_val,
+        dtype=np.int32
+    )
 
-    # Grid search
+    # Random Under Sampling for training data
+    rus = RandomUnderSampler(
+        sampling_strategy=1.0,
+        random_state=42
+    )
+
+    x_train_balance, y_train_balance = rus.fit_resample(
+        x_train,
+        y_train
+    )
+
+    print("*" * 3)
+    print("Random Under Sampling")
+    print("Before Sampling")
+
+    unique, counts = np.unique(
+        y_train,
+        return_counts=True
+    )
+
+    for label, count in zip(unique, counts):
+        print(f"Label {label}: {count}")
+
+    print()
+
+    print("After Sampling")
+
+    unique, counts = np.unique(
+        y_train_balance,
+        return_counts=True
+    )
+
+    for label, count in zip(unique, counts):
+        print(f"Label {label}: {count}")
+
+    print("*" * 3)
+
+    # Grid Search
     best_model = None
     best_score = -1
-    best_params = None
+    best_param = None
 
     for params in ParameterGrid(param_grid):
 
+        print(f"Training SVM : {params}")
         model = Pipeline([
             ("scaler", StandardScaler()),
             ("svm", SVC(
                 **params,
-                class_weight="balanced",
+                probability=True,
                 random_state=42
             ))
         ])
 
-        model.fit(x_train, y_train)
+        model.fit(
+            x_train_balance,
+            y_train_balance
+        )
 
-        pred = model.predict(x_val)
+        pred = model.predict(
+            x_val
+        )
 
-        score = accuracy_score(y_val, pred)
+        score = accuracy_score(
+            y_val,
+            pred
+        )
+
+        print(f"Validation Accuracy : {score:.4f}")
 
         if score > best_score:
+
             best_score = score
             best_model = model
-            best_params = params
+            best_param = params
 
     return {
         "best_model": best_model,
-        "best_params": best_params,
-        "best_score": best_score
+        "best_score": best_score,
+        "best_param": best_param
     }
 
 
-def evaluate_svm(
-        model,
-        test_set):
+def evaluate_svm(model, test_set):
 
+    # Group windows by trial
+    trial_dict = defaultdict(list)
+
+    for sample in test_set:
+        trial_key = (
+            sample["subject"],
+            sample["trial"]
+        )
+        trial_dict[trial_key].append(sample)
+
+    # Evaluation Containers
     y_true = []
     y_pred = []
     y_prob = []
 
-    for sample in test_set:
+    # Evaluate Each Trial
+    for (subject, trial), windows in trial_dict.items():
+        # Sort windows by time
+        windows.sort(
+            key=lambda x: x["start"]
+        )
 
-        features = sample["all_features"]
-
-        total_length = len(features)
-
-        window_preds = []
-        window_probs = []
-
-        # Sliding window
-        for start in range(
-            0,
-            total_length - config.WINDOW_SIZE + 1,
-            config.TEST_STRIDE
-        ):
-
-            end = start + config.WINDOW_SIZE
-
-            window = features[start:end]
-
-
-            # flatten
-            x = window.reshape(1, -1)
-
-            pred = model.predict(x)[0]
-
-
-            if hasattr(model, "predict_proba"):
-                prob = model.predict_proba(x)[0,1]
-            else:
-                # SVM fallback
-                score = model.decision_function(x)[0]
-                prob = 1 / (1 + np.exp(-score))
-
-            window_preds.append(pred)
-            window_probs.append(prob)
-
-
-        if len(window_preds) < config.VOTE_SIZE:
-            continue
-
-
-        # 7 window voting
-        vote_results = []
-
-        for i in range(
-            len(window_preds)-config.VOTE_SIZE+1
-        ):
-
-            group = window_preds[
-                i:i+config.VOTE_SIZE
-            ]
-
-            vote_rate = np.mean(group)
-
-
-            if vote_rate >= config.VOTE_THRESHOLD:
-                vote_results.append(1)
-
-            else:
-                vote_results.append(0)
-
-
-        # Sequence prediction
-        if np.any(np.array(vote_results)==1):
-            final_pred = 1
-        else:
-            final_pred = 0
-
-        final_prob = np.mean(window_probs)
-
-        y_true.append(
+        # Ground Truth
+        # Trial中只要有一个Window属于Fall
+        # 即认为该Trial为Fall
+        trial_label = max(
             sample["label"]
+            for sample in windows
         )
 
-        y_pred.append(
-            final_pred
-        )
+        # Predict every window
+        window_predictions = []
+        window_probabilities = []
 
-        y_prob.append(
-            final_prob
-        )
+        for sample in windows:
+            feature = sample["feature"].reshape(1, -1)
+            pred = model.predict(feature)[0]
+            prob = model.predict_proba(feature)[0, 1]
+            window_predictions.append(pred)
+            window_probabilities.append(prob)
 
+        # Window voting
+        vote_size = config.VOTE_SIZE
+        threshold = config.VOTE_THRESHOLD
+
+        trial_prediction = 0
+
+        if len(window_predictions) < vote_size:
+            positive_rate = np.mean(window_predictions)
+
+            if positive_rate >= threshold:
+                trial_prediction = 1
+
+        else:
+
+            for i in range(
+                len(window_predictions) - vote_size + 1
+            ):
+
+                vote = window_predictions[
+                    i:i + vote_size
+                ]
+
+                positive_rate = np.mean(vote)
+                if positive_rate >= threshold:
+
+                    trial_prediction = 1
+                    break
+
+        # Trial probability
+        trial_probability = 0
+
+        if len(window_probabilities) < vote_size:
+            trial_probability = np.mean(window_probabilities)
+
+        else:
+            probs = []
+            for i in range(len(window_probabilities) - vote_size + 1):
+                probs.append(
+                    np.mean(
+                        window_probabilities[i:i + vote_size]
+                    )
+                )
+
+            trial_probability = max(probs)
+
+        y_true.append(trial_label)
+        y_pred.append(trial_prediction)
+        y_prob.append(trial_probability)
 
     # Metrics
     accuracy = accuracy_score(
@@ -217,6 +270,33 @@ def evaluate_svm(
         y_pred
     )
 
+    # ROC Curve
+    if len(np.unique(y_true)) > 1:
+
+        fpr, tpr, _ = roc_curve(
+            y_true,
+            y_prob
+        )
+
+        roc_auc = auc(
+            fpr,
+            tpr
+        )
+
+    else:
+        fpr = np.array([0, 1])
+        tpr = np.array([0, 1])
+        roc_auc = 0.0
+
+    # Print Results
+    print("+" * 10)
+    print("SVM Evaluation")
+    print(f"Accuracy : {accuracy:.4f}")
+    print(f"Precision: {precision:.4f}")
+    print(f"Recall   : {recall:.4f}")
+    print(f"F1 Score : {f1:.4f}")
+    print(f"AUC      : {roc_auc:.4f}")
+    print("+" * 10)
 
     return {
         "accuracy": accuracy,
@@ -224,7 +304,7 @@ def evaluate_svm(
         "recall": recall,
         "f1": f1,
         "confusion_matrix": cm,
-        "y_true": y_true,
-        "y_pred": y_pred,
-        "y_prob": y_prob
+        "fpr": fpr,
+        "tpr": tpr,
+        "auc": roc_auc
     }

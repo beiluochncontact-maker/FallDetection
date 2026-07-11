@@ -221,7 +221,7 @@ class ResultVisualizer(BaseVisualizer):
 
         plt.ylabel("Importance")
 
-        plt.title("Top 20 Feature Importance (Random Forest)")
+        plt.title(f"Top 20 Feature Importance ({self.result_dir.name})")
 
         self.save(
             fig,
@@ -268,6 +268,33 @@ class ResultVisualizer(BaseVisualizer):
             "roc_curve.png"
         )
 
+    def plot_train_params(self):
+
+        path = self.result_dir / "train_params.csv"
+
+        if not path.exists():
+            return
+
+        df = pd.read_csv(path)
+
+        display = df.copy()
+        if "BestParam" in display.columns:
+            display["BestParam"] = display["BestParam"].astype(str).str.slice(0, 48)
+
+        fig, ax = plt.subplots(figsize=(12, max(2, 0.35 * len(display) + 1)))
+        ax.axis("off")
+
+        table = ax.table(
+            cellText=display.values,
+            colLabels=display.columns,
+            loc="center"
+        )
+        table.auto_set_font_size(False)
+        table.set_fontsize(8)
+        table.scale(1.0, 1.4)
+
+        self.save(fig, "train_params.png")
+
     # -------------------------------------------------
     def visualize_all(self):
 
@@ -281,11 +308,12 @@ class ResultVisualizer(BaseVisualizer):
 
         self.plot_metric_table()
 
-        if self.result_dir.name == "Random Forest":
+        self.plot_train_params()
+
+        if (self.result_dir / "roc_curve.npz").exists():
             self.plot_roc_curve()
 
-        # 只有 Random Forest 有 feature_importance.npy
-        if self.result_dir.name == "Random Forest":
+        if (self.result_dir / "feature_importance.npy").exists():
             self.plot_feature_importance()
 
         print("Finished.")

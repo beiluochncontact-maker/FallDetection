@@ -145,7 +145,8 @@ def train_random_forest(
     return {
         "best_model": best_model,
         "best_score": best_score,
-        "best_param": best_param
+        "best_param": best_param,
+        "feature_importance": best_model.feature_importances_
     }
 
 
@@ -196,7 +197,7 @@ def evaluate_random_forest(model, test_set):
             window_probabilities.append(prob)
 
 
-        # Seven-window voting
+        # Windows Voting
         vote_size = config.VOTE_SIZE
         threshold = config.VOTE_THRESHOLD
 

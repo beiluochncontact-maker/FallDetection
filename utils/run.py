@@ -1,5 +1,6 @@
 import numpy as np
 
+
 def run_model(
     model_name,
     train_fn,
@@ -37,10 +38,22 @@ def run_model(
             test_set
         )
 
+        best_param = train.get("best_param", train.get("best_params"))
+        best_score = train.get(
+            "best_score",
+            train.get("best_acc")
+        )
+
         result = {
+            "fold": fold,
             "subject": test_subject,
+            "best_param": best_param,
+            "best_score": best_score,
             **metrics
         }
+
+        if "feature_importance" in train:
+            result["feature_importance"] = train["feature_importance"]
 
         all_results.append(result)
 

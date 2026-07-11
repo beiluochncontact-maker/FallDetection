@@ -126,27 +126,6 @@ class DataVisualizer(BaseVisualizer):
         axes[1].set_title("Normal Sample")
 
         self.save(fig, "fall_vs_normal.png")
-    
-    # -------------------------------------------------
-    # 数据集划分比例
-    # -------------------------------------------------
-    def plot_dataset_split(self):
-
-        labels = ["Train", "Validation", "Test"]
-        sizes = [80, 10, 10]
-
-        fig = plt.figure(figsize=(6, 6))
-
-        plt.pie(
-            sizes,
-            labels=labels,
-            autopct="%1.1f%%",
-            startangle=90
-        )
-
-        plt.title("Dataset Split")
-
-        self.save(fig, "dataset_split.png")
 
     # --------------------------------------------------
     # 自动生成全部图片
@@ -162,7 +141,5 @@ class DataVisualizer(BaseVisualizer):
         self.plot_sensor_signal(dataset)
 
         self.plot_fall_vs_normal(dataset)
-
-        self.plot_dataset_split()
 
         print("Finished.\n")
