@@ -15,6 +15,8 @@ from sklearn.metrics import (
     confusion_matrix
 )
 
+from utils.device import get_device
+
 # Dataset
 class FallDataset(Dataset):
 
@@ -129,22 +131,20 @@ def train_transformer(
         val_set,
         param_grid):
 
-    device = torch.device(
-        "cuda"
-        if torch.cuda.is_available()
-        else "cpu"
-    )
+    device = get_device(verbose=True)
 
     train_loader = DataLoader(
         FallDataset(train_set),
         batch_size=param_grid["batch_size"],
-        shuffle=True
+        shuffle=True,
+        pin_memory=device.type == "cuda",
     )
 
     val_loader = DataLoader(
         FallDataset(val_set),
         batch_size=param_grid["batch_size"],
-        shuffle=False
+        shuffle=False,
+        pin_memory=device.type == "cuda",
     )
 
     model = FallTransformer(

@@ -5,15 +5,20 @@ ROOT = Path(__file__).resolve().parent
 SENSOR_DATA_DIR = ROOT / "preprocessing" / "data" / "sensor_data"
 LABEL_DATA_DIR = ROOT / "preprocessing" / "data" / "label_data"
 OUTPUT_DIR = ROOT / "output"
+FEATURE_DATASET_DIR = OUTPUT_DIR / "Feature Dataset"
+
+REBUILD_FEATURES = False
 
 SAMPLING_RATE = 100
 
 # Window parameters
 WINDOW_SIZE = 32
 ACCEPT_RATE = 0.5
-STRIDE = 16
-VOTE_SIZE = 7
+TRAIN_STRIDE = 32
+TEST_STRIDE = 160
+VOTE_SIZE = 5
 VOTE_THRESHOLD = 0.57
+NON_FALL_MAX_WINDOWS = 8
 
 # Label parameters
 LABEL_FALL = 1

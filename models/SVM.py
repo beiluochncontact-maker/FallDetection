@@ -30,8 +30,8 @@ def train_svm(
         for sample in samples:
             windows = sliding_window(
                 sample["all_features"],
-                window_size=32,
-                stride=8
+                window_size=config.WINDOW_SIZE,
+                stride=config.TRAIN_STRIDE
             )
 
             for w in windows:
@@ -50,8 +50,8 @@ def train_svm(
 
             windows = sliding_window(
                 sample["all_features"],
-                window_size=32,
-                stride=8
+                window_size=config.WINDOW_SIZE,
+                stride=config.TRAIN_STRIDE
             )
 
             for w in windows:
@@ -117,7 +117,7 @@ def evaluate_svm(
         for start in range(
             0,
             total_length - config.WINDOW_SIZE + 1,
-            config.STRIDE
+            config.TEST_STRIDE
         ):
 
             end = start + config.WINDOW_SIZE

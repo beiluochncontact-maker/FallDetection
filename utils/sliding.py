@@ -3,7 +3,7 @@ import numpy as np
 
 def sliding_window(features,
                    window_size=config.WINDOW_SIZE,
-                   stride=config.STRIDE):
+                   stride=config.TRAIN_STRIDE):
 
     windows = []
 

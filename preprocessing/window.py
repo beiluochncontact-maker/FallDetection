@@ -2,74 +2,89 @@ import numpy as np
 import pandas as pd
 import config
 
-rng = np.random.default_rng(42)
+
+def _candidate_starts(data_len, window_size, stride):
+    if data_len < window_size:
+        return []
+
+    starts = list(range(0, data_len - window_size + 1, stride))
+    last_start = data_len - window_size
+
+    if not starts:
+        return [last_start]
+
+    if starts[-1] != last_start:
+        starts.append(last_start)
+
+    return starts
 
 
-def build_windows(dataset):
+def _sample_starts(starts, max_windows):
+    if max_windows is None or len(starts) <= max_windows:
+        return starts
+
+    # Uniform coverage along the trial (deterministic)
+    indices = np.linspace(0, len(starts) - 1, max_windows)
+    indices = np.unique(np.round(indices).astype(int))
+    return [starts[i] for i in indices]
+
+
+def build_windows(dataset, mode="train"):
+    """
+    mode="train":
+        fall     -> event-centered crop + sliding windows
+        non-fall -> full trial, uniformly subsampled windows
+    mode="test":
+        all trials -> full original sequence + dense sliding windows
+    """
+    if mode not in {"train", "test"}:
+        raise ValueError(f"Unsupported window mode: {mode}")
 
     all_windows = []
-    for sample in dataset.values():
+    window_size = config.WINDOW_SIZE
+    stride = (
+        config.TEST_STRIDE if mode == "test" else config.TRAIN_STRIDE
+    )
 
+    for sample in dataset.values():
         df = pd.read_csv(sample["csv_path"])
         total_length = len(df)
+        label = 1 if sample["is_fall"] else 0
 
-        window_size = config.WINDOW_SIZE
-
-        # Window building
-        if sample["is_fall"]:
-
-            onset = sample["onset"]
-            impact = sample["impact"]
+        if mode == "test":
+            seg_start, seg_end = 0, total_length
+        elif sample["is_fall"]:
             event_span = int(window_size * (1 - config.ACCEPT_RATE))
-
-            start = onset - event_span
-            start = max(0, start)
-            end = impact + event_span
-            end = min(total_length, end)
-
-            
-            if start + config.WINDOW_SIZE > total_length:
-                start = total_length - config.WINDOW_SIZE
-            
-            label = 1
-
-        
+            seg_start = max(0, sample["onset"] - event_span)
+            seg_end = min(total_length, sample["impact"] + event_span)
+            if seg_start + window_size > total_length:
+                seg_start = max(0, total_length - window_size)
         else:
-            onset = None
-            impact = None
-            start = 0
-            end = total_length
-            label = 0
+            seg_start, seg_end = 0, total_length
 
         data = (
-            df.iloc[start:end][config.FEATURE_COLUMNS]
+            df.iloc[seg_start:seg_end][config.FEATURE_COLUMNS]
             .to_numpy(dtype=np.float32)
         )
-                
 
-        # Generate Sliding Windows
-        stride = config.STRIDE
-        starts = list(range(0, len(data)-window_size+1, stride))
+        starts = _candidate_starts(len(data), window_size, stride)
 
-        last_start = max(0, len(data)-window_size)
+        if mode == "train" and not sample["is_fall"]:
+            starts = _sample_starts(starts, config.NON_FALL_MAX_WINDOWS)
 
-        if starts[-1] != last_start:
-            starts.append(last_start)
-
-        for s in starts:
-
-            window = data[s:s + window_size]
+        for relative_start in starts:
+            absolute_start = seg_start + relative_start
+            window = data[relative_start:relative_start + window_size]
 
             all_windows.append({
                 "sample_id": sample["subject"] + sample["trial"],
                 "subject": sample["subject"],
                 "trial": sample["trial"],
                 "label": label,
-                "start": s,
-                "end": s + window_size - 1,
+                "start": absolute_start,
+                "end": absolute_start + window_size - 1,
                 "data": window
             })
-
 
     return all_windows
 

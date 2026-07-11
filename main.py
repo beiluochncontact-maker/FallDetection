@@ -3,12 +3,12 @@ import config
 from preprocessing.reader import label_reader
 from preprocessing.reader import sensor_reader
 from preprocessing.dataset import dataset_builder
-from preprocessing.window import build_windows
-from preprocessing.feature import feature_extractor
 
 from utils.split import split_loso
 from utils.result import save_result
 from utils.run import run_model
+from utils.device import get_device
+from utils.feature_cache import prepare_feature_datasets
 
 from visualization.data_visualizer import DataVisualizer
 from visualization.result_visualizer import ResultVisualizer
@@ -30,6 +30,8 @@ from models.Transformer import (
 
 def main():
 
+    get_device(verbose=True)
+
     print("Reading Dataset...")
 
     # Read Data
@@ -47,17 +49,11 @@ def main():
     visualizer = DataVisualizer()
     visualizer.visualize_all(dataset)
 
-    # Window
-    print("Generating Window Dataset...")
-    window_dataset = build_windows(dataset)
-
-    # Feature Extraction
-    print("Generating Feature Dataset...")
-    dataset = feature_extractor(window_dataset)
-    
+    # Feature Dataset (cached under output/Feature Dataset)
+    train_features, test_features = prepare_feature_datasets(dataset)
 
     # LOSO Split
-    loso_dataset = split_loso(dataset)
+    loso_dataset = split_loso(train_features, test_features)
 
     print("Training Models...")
     run_model(
