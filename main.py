@@ -37,8 +37,7 @@ def main():
     # Read Data
     #label_dict = label_reader()
     #sensor_dict = sensor_reader()
-    #print("Label Dict:", label_dict)
-    #print("Sensor Dict:", sensor_dict)
+
 
     # Merge Dataset
     print("Building Dataset...")
@@ -64,7 +63,7 @@ def main():
         save_result,
         param_grid=config.RF_PARAM_GRID
     )
-
+    
     run_model(
         "SVM",
         train_svm,

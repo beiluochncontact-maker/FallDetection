@@ -15,10 +15,26 @@ SAMPLING_RATE = 100
 WINDOW_SIZE = 32
 ACCEPT_RATE = 0.5
 TRAIN_STRIDE = 32
-TEST_STRIDE = 160
-VOTE_SIZE = 5
-VOTE_THRESHOLD = 0.57
+TEST_STRIDE = 64  # v2.2: denser test windows (was 160)
 NON_FALL_MAX_WINDOWS = 8
+
+# Trial decision: soft probability aggregation (not hard 0/1 voting)
+# score = max(p) if PROB_SMOOTH_SIZE==1, else max of sliding-mean(p, k)
+PROB_SMOOTH_SIZE = 2
+PROB_THRESHOLD = 0.46  # v2.2: re-tuned after TEST_STRIDE=64
+
+# Score aggregation for k>=2:
+#   "mean"          -> max sliding mean (v2.x default)
+#   "max_alpha_min" -> max over pairs of (max + SCORE_ALPHA * min)
+SCORE_AGG = "mean"
+SCORE_ALPHA = 0.0
+
+# Hard Negative Mining (train-time; LOSO-safe: mined on train fold only)
+ENABLE_HNM = False
+HNM_HARD_FRACTION = 0.7  # fraction of negatives taken from hardest pool
+HNM_ADL_BONUS = 0.15     # added to pilot P(fall) for known hard ADL tasks
+HNM_HARD_ADL_TASKS = (2, 5, 10, 15, 16, 18, 19, 35, 36)
+
 
 # Label parameters
 LABEL_FALL = 1
@@ -72,55 +88,25 @@ FEATURE_LIST = [
 
 # Random Forest parameters
 RF_PARAM_GRID = [
-
-        {
-            "n_estimators": 100,
-            "max_depth": None
-        },
-
-        {
-            "n_estimators": 200,
-            "max_depth": None
-        },
-
-        {
-            "n_estimators": 300,
-            "max_depth": None
-        },
-
-        {
-            "n_estimators": 200,
-            "max_depth": 20
-        },
-
-        {
-            "n_estimators": 300,
-            "max_depth": 20
-        }
-
-    ]
+    {
+        "n_estimators": 100,
+        "max_depth": None
+    }
+]
 
 # SVM parameters
 SVM_PARAM_GRID = {
-
     "kernel": [
-        "rbf",
-        "linear"
+        "rbf"
     ],
-
     "C": [
-        0.1,
-        1,
         10,
         100
     ],
-
     "gamma": [
         "scale",
-        0.1,
         0.01
     ]
-
 }
 
 # Transformer parameters

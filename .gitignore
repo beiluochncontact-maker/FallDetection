@@ -6,6 +6,9 @@ utils/__pycache__/
 visualization/__pycache__/
 *.pyc
 
+# scripts
+scripts/
+
 # results
 output/
 

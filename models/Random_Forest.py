@@ -1,8 +1,6 @@
 import numpy as np
-import config
 
-from utils.sliding import sliding_window
-from utils.sliding import vote_prediction
+from utils.sliding import trial_decision_from_probs
 from imblearn.under_sampling import RandomUnderSampler
 from collections import defaultdict
 from sklearn.ensemble import RandomForestClassifier
@@ -185,63 +183,17 @@ def evaluate_random_forest(model, test_set):
         )
 
 
-        # Predict every window
-        window_predictions = []
+        # Soft window probabilities → trial score + aligned hard decision
         window_probabilities = []
 
         for sample in windows:
             feature = sample["feature"].reshape(1, -1)
-            pred = model.predict(feature)[0]
             prob = model.predict_proba(feature)[0, 1]
-            window_predictions.append(pred)
             window_probabilities.append(prob)
 
-
-        # Windows Voting
-        vote_size = config.VOTE_SIZE
-        threshold = config.VOTE_THRESHOLD
-
-        trial_prediction = 0
-
-        if len(window_predictions) < vote_size:
-            positive_rate = np.mean(window_predictions)
-
-            if positive_rate >= threshold:
-                trial_prediction = 1
-
-        else:
-
-            for i in range(
-                len(window_predictions) - vote_size + 1
-            ):
-
-                vote = window_predictions[
-                    i:i + vote_size
-                ]
-
-                positive_rate = np.mean(vote)
-                if positive_rate >= threshold:
-
-                    trial_prediction = 1
-                    break
-
-
-        # Trial probability
-        trial_probability = 0
-
-        if len(window_probabilities) < vote_size:
-            trial_probability = np.mean(window_probabilities)
-
-        else:
-            probs = []
-            for i in range(len(window_probabilities)-vote_size+1):
-                probs.append(
-                    np.mean(
-                        window_probabilities[i:i+vote_size]
-                    )
-                )
-
-            trial_probability = max(probs)
+        trial_prediction, trial_probability = trial_decision_from_probs(
+            window_probabilities
+        )
 
         y_true.append(trial_label)
         y_pred.append(trial_prediction)

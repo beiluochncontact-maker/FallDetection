@@ -1,8 +1,10 @@
 import numpy as np
-import config
 
+import config
 from imblearn.under_sampling import RandomUnderSampler
 from collections import defaultdict
+from utils.hnm import flatten_train_arrays, mine_hard_negatives
+from utils.sliding import trial_decision_from_probs
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import ParameterGrid
@@ -18,32 +20,25 @@ from sklearn.metrics import (
 )
 
 
+def _make_svm_pipeline(params, probability: bool):
+    return Pipeline([
+        ("scaler", StandardScaler()),
+        ("svm", SVC(
+            **params,
+            probability=probability,
+            cache_size=1000,
+            random_state=42,
+        )),
+    ])
+
+
 def train_svm(
     train_set,
     val_set,
     param_grid
 ):
 
-    # Build Training Data
-    x_train = []
-    y_train = []
-
-    for subject_samples in train_set.values():
-
-        for sample in subject_samples:
-
-            x_train.append(sample["feature"])
-            y_train.append(sample["label"])
-
-    x_train = np.asarray(
-        x_train,
-        dtype=np.float32
-    )
-
-    y_train = np.asarray(
-        y_train,
-        dtype=np.int32
-    )
+    x_train, y_train, trials = flatten_train_arrays(train_set)
 
     # Build Validation Data
     x_val = []
@@ -66,7 +61,7 @@ def train_svm(
         dtype=np.int32
     )
 
-    # Random Under Sampling for training data
+    # Random Under Sampling for training data (pilot / baseline balance)
     rus = RandomUnderSampler(
         sampling_strategy=1.0,
         random_state=42
@@ -103,22 +98,42 @@ def train_svm(
 
     print("*" * 3)
 
-    # Grid Search
-    best_model = None
+    hnm_info = None
+    if config.ENABLE_HNM:
+        # Pilot model on ordinary RUS balance (fixed mild hyperparams)
+        pilot_params = {"kernel": "rbf", "C": 10, "gamma": "scale"}
+        print("HNM: fitting pilot SVM for hard-negative mining...")
+        pilot = _make_svm_pipeline(pilot_params, probability=True)
+        pilot.fit(x_train_balance, y_train_balance)
+        x_train_balance, y_train_balance, hnm_info = mine_hard_negatives(
+            x_train,
+            y_train,
+            trials,
+            pilot,
+        )
+        print("HNM: rebuilt train balance")
+        for key, value in hnm_info.items():
+            print(f"  {key}: {value}")
+        unique, counts = np.unique(y_train_balance, return_counts=True)
+        for label, count in zip(unique, counts):
+            print(f"  Label {label}: {count}")
+
+    # Grid Search (no probability during search; refit best with probability)
     best_score = -1
     best_param = None
+    seen_linear_c = set()
 
     for params in ParameterGrid(param_grid):
 
+        # gamma is ignored for linear kernel; skip duplicate (C, linear) pairs
+        if params.get("kernel") == "linear":
+            c = params.get("C")
+            if c in seen_linear_c:
+                continue
+            seen_linear_c.add(c)
+
         print(f"Training SVM : {params}")
-        model = Pipeline([
-            ("scaler", StandardScaler()),
-            ("svm", SVC(
-                **params,
-                probability=True,
-                random_state=42
-            ))
-        ])
+        model = _make_svm_pipeline(params, probability=False)
 
         model.fit(
             x_train_balance,
@@ -139,14 +154,22 @@ def train_svm(
         if score > best_score:
 
             best_score = score
-            best_model = model
             best_param = params
 
-    return {
+    best_model = _make_svm_pipeline(best_param, probability=True)
+    best_model.fit(
+        x_train_balance,
+        y_train_balance
+    )
+
+    result = {
         "best_model": best_model,
         "best_score": best_score,
-        "best_param": best_param
+        "best_param": best_param,
     }
+    if hnm_info is not None:
+        result["hnm_info"] = hnm_info
+    return result
 
 
 def evaluate_svm(model, test_set):
@@ -181,61 +204,17 @@ def evaluate_svm(model, test_set):
             for sample in windows
         )
 
-        # Predict every window
-        window_predictions = []
+        # Soft window probabilities → trial score + aligned hard decision
         window_probabilities = []
 
         for sample in windows:
             feature = sample["feature"].reshape(1, -1)
-            pred = model.predict(feature)[0]
             prob = model.predict_proba(feature)[0, 1]
-            window_predictions.append(pred)
             window_probabilities.append(prob)
 
-        # Window voting
-        vote_size = config.VOTE_SIZE
-        threshold = config.VOTE_THRESHOLD
-
-        trial_prediction = 0
-
-        if len(window_predictions) < vote_size:
-            positive_rate = np.mean(window_predictions)
-
-            if positive_rate >= threshold:
-                trial_prediction = 1
-
-        else:
-
-            for i in range(
-                len(window_predictions) - vote_size + 1
-            ):
-
-                vote = window_predictions[
-                    i:i + vote_size
-                ]
-
-                positive_rate = np.mean(vote)
-                if positive_rate >= threshold:
-
-                    trial_prediction = 1
-                    break
-
-        # Trial probability
-        trial_probability = 0
-
-        if len(window_probabilities) < vote_size:
-            trial_probability = np.mean(window_probabilities)
-
-        else:
-            probs = []
-            for i in range(len(window_probabilities) - vote_size + 1):
-                probs.append(
-                    np.mean(
-                        window_probabilities[i:i + vote_size]
-                    )
-                )
-
-            trial_probability = max(probs)
+        trial_prediction, trial_probability = trial_decision_from_probs(
+            window_probabilities
+        )
 
         y_true.append(trial_label)
         y_pred.append(trial_prediction)
