@@ -47,12 +47,13 @@ def trial_score_from_probs(
         return float(np.max(probs))
 
     if agg == "max_alpha_min":
-        # Currently defined on adjacent pairs (k=2 semantics).
-        left = probs[:-1]
-        right = probs[1:]
-        pair_max = np.maximum(left, right)
-        pair_min = np.minimum(left, right)
-        return float(np.max(pair_max + float(alpha) * pair_min))
+        # Sliding windows of length k: max + α·min, then take the max over starts.
+        # k=2 reduces to the previous adjacent-pair definition.
+        scores = []
+        for i in range(probs.size - k + 1):
+            seg = probs[i : i + k]
+            scores.append(float(np.max(seg) + float(alpha) * np.min(seg)))
+        return float(np.max(scores))
 
     kernel = np.ones(k, dtype=np.float64) / k
     sliding_means = np.convolve(probs, kernel, mode="valid")

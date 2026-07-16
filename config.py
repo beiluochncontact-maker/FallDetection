@@ -15,21 +15,22 @@ SAMPLING_RATE = 100
 WINDOW_SIZE = 32
 ACCEPT_RATE = 0.5
 TRAIN_STRIDE = 32
-TEST_STRIDE = 64  # v2.2: denser test windows (was 160)
+TEST_STRIDE = 64
 NON_FALL_MAX_WINDOWS = 8
 
-# Trial decision: soft probability aggregation (not hard 0/1 voting)
-# score = max(p) if PROB_SMOOTH_SIZE==1, else max of sliding-mean(p, k)
+# Soft probability aggregation
 PROB_SMOOTH_SIZE = 2
-PROB_THRESHOLD = 0.46  # v2.2: re-tuned after TEST_STRIDE=64
+PROB_THRESHOLD = 0.46
 
 # Score aggregation for k>=2:
-#   "mean"          -> max sliding mean (v2.x default)
-#   "max_alpha_min" -> max over pairs of (max + SCORE_ALPHA * min)
 SCORE_AGG = "mean"
 SCORE_ALPHA = 0.0
+# alpha-k offline sweep
+SCORE_ALPHA_RANGE = (-1.0, 1.0)
+ALPHA_STRIDE = 0.01
+SCORE_K = (2, 3, 4)
 
-# Hard Negative Mining (train-time; LOSO-safe: mined on train fold only)
+# Hard Negative Mining
 ENABLE_HNM = False
 HNM_HARD_FRACTION = 0.7  # fraction of negatives taken from hardest pool
 HNM_ADL_BONUS = 0.15     # added to pilot P(fall) for known hard ADL tasks

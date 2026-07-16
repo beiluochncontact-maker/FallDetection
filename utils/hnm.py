@@ -1,9 +1,6 @@
-"""Hard Negative Mining helpers for LOSO training."""
-
 from __future__ import annotations
 
 import numpy as np
-
 import config
 
 

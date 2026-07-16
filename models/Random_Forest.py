@@ -1,10 +1,11 @@
 import numpy as np
 
+import config
 from utils.sliding import trial_decision_from_probs
+from utils.hnm import flatten_train_arrays, mine_hard_negatives
 from imblearn.under_sampling import RandomUnderSampler
 from collections import defaultdict
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import accuracy_score
 from sklearn.metrics import (
     accuracy_score,
     precision_score,
@@ -16,32 +17,22 @@ from sklearn.metrics import (
 )
 
 
+def _make_rf(params: dict) -> RandomForestClassifier:
+    return RandomForestClassifier(
+        n_estimators=params["n_estimators"],
+        max_depth=params["max_depth"],
+        random_state=42,
+        n_jobs=-1,
+    )
+
+
 def train_random_forest(
     train_set,
     val_set,
     param_grid
 ):
 
-    # Build Training Data
-    x_train = []
-    y_train = []
-
-    for subject_samples in train_set.values():
-
-        for sample in subject_samples:
-
-            x_train.append(sample["feature"])
-            y_train.append(sample["label"])
-
-    x_train = np.asarray(
-        x_train,
-        dtype=np.float32
-    )
-
-    y_train = np.asarray(
-        y_train,
-        dtype=np.int32
-    )
+    x_train, y_train, trials = flatten_train_arrays(train_set)
 
     # Build Validation Data
     x_val = []
@@ -64,7 +55,7 @@ def train_random_forest(
         dtype=np.int32
     )
 
-    # Random Under Sampling for training data
+    # Random Under Sampling for training data (pilot / baseline balance)
     rus = RandomUnderSampler(
         sampling_strategy=1.0,
         random_state=42
@@ -101,6 +92,25 @@ def train_random_forest(
 
     print("*" * 3)
 
+    hnm_info = None
+    if config.ENABLE_HNM:
+        pilot_params = {"n_estimators": 100, "max_depth": None}
+        print("HNM: fitting pilot RF for hard-negative mining...")
+        pilot = _make_rf(pilot_params)
+        pilot.fit(x_train_balance, y_train_balance)
+        x_train_balance, y_train_balance, hnm_info = mine_hard_negatives(
+            x_train,
+            y_train,
+            trials,
+            pilot,
+        )
+        print("HNM: rebuilt train balance")
+        for key, value in hnm_info.items():
+            print(f"  {key}: {value}")
+        unique, counts = np.unique(y_train_balance, return_counts=True)
+        for label, count in zip(unique, counts):
+            print(f"  Label {label}: {count}")
+
     # Grid Search
     best_model = None
     best_score = -1
@@ -109,13 +119,7 @@ def train_random_forest(
     for params in param_grid:
 
         print(f"Training RF : {params}")
-        model = RandomForestClassifier(
-
-            n_estimators=params["n_estimators"],
-            max_depth=params["max_depth"],
-            random_state=42,
-            n_jobs=-1
-        )
+        model = _make_rf(params)
 
         model.fit(
             x_train_balance,
@@ -139,13 +143,15 @@ def train_random_forest(
             best_model = model
             best_param = params
 
-
-    return {
+    result = {
         "best_model": best_model,
         "best_score": best_score,
         "best_param": best_param,
-        "feature_importance": best_model.feature_importances_
+        "feature_importance": best_model.feature_importances_,
     }
+    if hnm_info is not None:
+        result["hnm_info"] = hnm_info
+    return result
 
 
 def evaluate_random_forest(model, test_set):
@@ -159,7 +165,6 @@ def evaluate_random_forest(model, test_set):
             sample["trial"]
         )
         trial_dict[trial_key].append(sample)
-
 
     # Evaluation Containers
     y_true = []
@@ -182,7 +187,6 @@ def evaluate_random_forest(model, test_set):
             for sample in windows
         )
 
-
         # Soft window probabilities → trial score + aligned hard decision
         window_probabilities = []
 
@@ -198,7 +202,6 @@ def evaluate_random_forest(model, test_set):
         y_true.append(trial_label)
         y_pred.append(trial_prediction)
         y_prob.append(trial_probability)
-
 
     # Metrics
     accuracy = accuracy_score(
@@ -229,7 +232,6 @@ def evaluate_random_forest(model, test_set):
         y_pred
     )
 
-
     # ROC Curve
     if len(np.unique(y_true)) > 1:
 
@@ -247,7 +249,6 @@ def evaluate_random_forest(model, test_set):
         fpr = np.array([0, 1])
         tpr = np.array([0, 1])
         roc_auc = 0.0
-
 
     # Print Results
     print("+" * 10)
