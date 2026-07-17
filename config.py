@@ -27,11 +27,11 @@ SCORE_AGG = "mean"
 SCORE_ALPHA = 0.0
 # alpha-k offline sweep
 SCORE_ALPHA_RANGE = (-1.0, 1.0)
-ALPHA_STRIDE = 0.01
+ALPHA_STRIDE = 0.25
 SCORE_K = (2, 3, 4)
 
 # Hard Negative Mining
-ENABLE_HNM = False
+ENABLE_HNM = True
 HNM_HARD_FRACTION = 0.7  # fraction of negatives taken from hardest pool
 HNM_ADL_BONUS = 0.15     # added to pilot P(fall) for known hard ADL tasks
 HNM_HARD_ADL_TASKS = (2, 5, 10, 15, 16, 18, 19, 35, 36)
